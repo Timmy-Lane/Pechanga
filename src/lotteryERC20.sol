@@ -1,92 +1,64 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface IERC20 {
-    function transferFrom(address from, address to, uint256 amount) external returns (bool);
-}
-
-contract Lottery{
-    address[] public players;
-    uint256 public roundId;
+contract LotteryERC20 {
     address public owner;
+    string public name;
+    string public symbol;
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
 
-    IERC20 public ticketToken;
-    uint256 public ticketPrice;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
 
-    uint256 public constant TICKET_PRICE = 0.01 ether;
-    uint256 public fee = 500;
+    event Transfer(address indexed from, address indexed to, uint amount);
+    event Approval(address indexed owner, address indexed spender, uint amount);
 
-    struct Round {
-        address winner;
-        uint256 potTokens;
-        uint256 playersCount;
-        uint256 timestamtp;
+    constructor(string memory _name, string memory _symbol, uint initialSupply) {
+        owner = msg.sender;
+        name = _name;
+        symbol = _symbol;
+        _mint(msg.sender, initialSupply);
     }
 
-    mapping(uint256 => Round) public rounds;
-
-    event Enter(address indexed player, uint256 tickets, uint256 value, uint256 roundId);
-    event WinnerPicked(address indexed winner, uint256 prize, uint256 roundId);
-
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        require(msg.sender == owner, "Not owner");
         _;
     }
 
-    constructor(address _token, uint256 _ticketPrice){
-        owner = msg.sender;
-        roundId = 1;
-        ticketToken = IERC20(_token);
-        ticketPrice = _ticketPrice;
+    function mint(address to, uint amount) external onlyOwner {
+        _mint(to, amount);
     }
 
-    function enter() external payable{
-        require(msg.value >= TICKET_PRICE, 'not enough eth, pay 0.01 eth');
-        require(msg.value % TICKET_PRICE == 0, 'Send multiple of ticket price');
-
-        uint256 tickets = msg.value / TICKET_PRICE;
-        for(uint256 i = 0; i < tickets; i++){
-            players.push(msg.sender);
-        }
-
-        emit Enter(msg.sender, tickets, msg.value, roundId);
+    function transfer(address to, uint amount) external returns (bool){
+        require(balanceOf[msg.sender] >= amount, 'Not enough balance');
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
     }
 
-    function pickWinner() external onlyOwner returns(address winner){
-        require(players.length > 0, 'Not enough players');
-
-        uint256 pot = address(this).balance;
-        uint256 newFee = (pot * fee) / 10_000;
-        uint256 prize = pot - newFee;
-
-        uint256 randomIndex = _random() % players.length;
-        winner = players[randomIndex];
-
-        
-
-        delete players;
-        roundId++;
-
-        if(newFee > 0){
-            (bool feeSent, ) = owner.call{value: newFee}("");
-            require(feeSent, 'Fee transfer failed');
-        }
-
-        (bool prizeSent, ) = winner.call{value: prize}("");
-        require(prizeSent, 'Prize transfer fail');
-
-        emit WinnerPicked(winner, prize, roundId - 1);
+    function approve(address spender, uint amount) external returns (bool){
+        allowance[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
     }
 
-    function _random() private view returns (uint256){
-        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender, players.length, address(this).balance)));
+    function transferFrom(address from, address to, uint amount) external returns (bool){
+        require(balanceOf[msg.sender] >= amount, 'Not enough balance');
+        require(allowance[from][msg.sender] >= amount, 'Not allowed');
+
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+
+        emit Transfer(from, to, amount);
+        return true;
     }
 
-    function playersCount() external view returns (uint256){
-        return players.length;
-    }
-
-    function contractBalance() external view returns (uint256) {
-        return address(this).balance;
+    function _mint(address to, uint amount) internal{
+        totalSupply += amount;
+        balanceOf[to] += amount;
+        emit Transfer(address(0), to, amount);
     }
 }
