@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import "../src/Lottery.sol";
+import "../src/games/Lottery.sol";
 import "./mocks/VRFCoordinatorV2Mock.sol";
 
 contract LotteryTest is Test {
