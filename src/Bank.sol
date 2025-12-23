@@ -8,12 +8,10 @@ contract Bank is Ownable, ReentrancyGuard {
     mapping(address => uint256) public balances;
     address public gameManager;
 
-    constructor() Ownable(msg.sender){
-
-    }
+    constructor() Ownable(msg.sender) {}
 
     modifier onlyGameManager() {
-        require(msg.sender == gameManager, "Not GM");
+        require(msg.sender == gameManager, "You're not a Game Manager");
         _;
     }
 
